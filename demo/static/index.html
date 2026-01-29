@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MCP API Demo</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>MCP API Demo</h1>
+      <div class="sub">Local demo — WebSocket / JSON tools</div>
+    </header>
+
+    <div class="controls">
+      <label>API Path/URL:</label>
+      <input id="apiPath" placeholder="/status" value="/status" />
+      <div class="btns">
+        <button id="callBtn" class="primary">Call API</button>
+        <button id="clearBtn">Clear Results</button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label>API Base:</label>
+      <input id="apiBase" placeholder="https://example.com" />
+      <div class="btns">
+        <button id="saveBtn" class="primary">Save</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label>Newsroom: Business Unit ID (optional for users)</label>
+      <input id="buId" placeholder="e.g. 1" />
+      <div class="btns">
+        <button id="listBUsBtn" class="primary">List Business Units</button>
+        <button id="listUsersBtn">List Users</button>
+      </div>
+    </div>
+
+    <div id="statusText" class="status">Disconnected</div>
+
+    <div class="panel-row">
+      <div class="label">API Result:</div>
+      <div id="apiOutput" class="output small"></div>
+    </div>
+
+    <div class="panel-row">
+      <div class="label">Live:</div>
+      <div id="output" class="output"></div>
+    </div>
+  </div>
+
+  <script>
+// inlined app.js to avoid static file loading/cache issues
+// Clean single-file app.js
+function qs(id){ return document.getElementById(id); }
+
+function setStatus(connected){
+  const s = qs('statusText');
+  s.textContent = connected ? 'Connected' : 'Disconnected';
+  s.className = connected ? 'status connected' : 'status disconnected';
+}
+
+function showOutput(obj, append = false){
+  const out = qs('output');
+  const str = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+  if(append && out.textContent) out.textContent = out.textContent + '\n' + str;
+  else out.textContent = str;
+}
+
+function escapeHtml(str){
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function syntaxHighlight(json){
+  if(typeof json !== 'string') json = JSON.stringify(json, null, 2);
+  json = escapeHtml(json);
+  return json.replace(/(\"(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\\"])*\"\s*:\s*)/g, function(m){
+    // key
+    return '<span class="key">' + m + '</span>';
+  }).replace(/(\"(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\\"])*\")/g, function(m){
+    return '<span class="string">' + m + '</span>';
+  }).replace(/\b(true|false)\b/g, '<span class="boolean">$1</span>')
+    .replace(/\b(null)\b/g, '<span class="null">$1</span>')
+    .replace(/(-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)/g, '<span class="number">$1</span>');
+}
+
+function showApiOutput(obj){
+  const out = qs('apiOutput');
+  // if server returned an object with a `text` field that itself is JSON string, try to parse it
+  try{
+    if(obj && typeof obj === 'object' && obj.text){
+      // try parse text as JSON
+      let parsed = null;
+      try{ parsed = JSON.parse(obj.text); }
+      catch(e){ parsed = obj.text; }
+      // show original wrapper with pretty inner text
+      const wrapper = Object.assign({}, obj, { text: parsed });
+      out.innerHTML = '<pre>' + syntaxHighlight(wrapper) + '</pre>';
+      return;
+    }
+    // otherwise pretty print the object or string
+    if(typeof obj === 'string'){
+      // if it's JSON, pretty-print it
+      try{ const p = JSON.parse(obj); out.innerHTML = '<pre>' + syntaxHighlight(p) + '</pre>'; return; }catch(e){}
+      out.innerHTML = '<pre>' + escapeHtml(obj) + '</pre>';
+      return;
+    }
+    out.innerHTML = '<pre>' + syntaxHighlight(obj) + '</pre>';
+  }catch(e){
+    out.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+  }
+}
+
+async function callListBusinessUnits(){
+  showOutput('Calling list_business_units...');
+  try{
+    const r = await fetch('/tools/newsroom/list-business-units');
+    const j = await r.json();
+    showApiOutput(j);
+  }catch(e){ showApiOutput('Error: '+e.message); }
+}
+
+async function callListUsers(){
+  const bu = qs('buId').value.trim();
+  let url = '/tools/newsroom/list-users';
+  if(bu) url += '?business_unit_id=' + encodeURIComponent(bu);
+  showOutput('Calling list_users...');
+  try{
+    const r = await fetch(url);
+    const j = await r.json();
+    showApiOutput(j);
+  }catch(e){ showApiOutput('Error: '+e.message); }
+}
+
+async function callApi(){
+  let base = qs('apiBase').value.trim();
+  const path = qs('apiPath').value.trim();
+  // allow empty base: default to current origin so "/status" calls localhost server
+  if(!base){
+    if(path.startsWith('http://') || path.startsWith('https://')){
+      base = path;
+      showOutput('Calling ' + base);
+    } else {
+      base = location.origin;
+      showOutput('Calling ' + base + path);
+    }
+  } else {
+    showOutput('Calling ' + base + path);
+  }
+  try{
+    const resp = await fetch('/call', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ base, path })
+    });
+    const data = await resp.json();
+    showApiOutput(data);
+  }catch(e){
+    showApiOutput('Error: ' + e.message);
+  }
+}
+
+function saveBase(){
+  const base = qs('apiBase').value.trim();
+  if(base) localStorage.setItem('demo_api_base', base);
+  alert('Saved');
+}
+
+function resetBase(){
+  localStorage.removeItem('demo_api_base');
+  qs('apiBase').value = '';
+  alert('Reset');
+}
+
+async function checkServer(){
+  try{
+    const r = await fetch('/status');
+    if(r.ok){ setStatus(true); return; }
+  }catch(e){}
+  setStatus(false);
+}
+
+function init(){
+  const saved = localStorage.getItem('demo_api_base');
+  if(saved) qs('apiBase').value = saved;
+
+  console.log('app.init running');
+  const callBtn = qs('callBtn');
+  const clearBtn = qs('clearBtn');
+  const saveBtn = qs('saveBtn');
+  const resetBtn = qs('resetBtn');
+  console.log({callBtn, clearBtn, saveBtn, resetBtn});
+  if(callBtn) callBtn.addEventListener('click', ()=>{ console.log('callBtn clicked'); callApi(); });
+  if(clearBtn) clearBtn.addEventListener('click', ()=>{ console.log('clearBtn clicked'); showOutput(''); showApiOutput(''); });
+  if(saveBtn) saveBtn.addEventListener('click', ()=>{ console.log('saveBtn clicked'); saveBase(); });
+  if(resetBtn) resetBtn.addEventListener('click', ()=>{ console.log('resetBtn clicked'); resetBase(); });
+  const listBUsBtn = qs('listBUsBtn');
+  const listUsersBtn = qs('listUsersBtn');
+  if(listBUsBtn) listBUsBtn.addEventListener('click', ()=>{ callListBusinessUnits(); });
+  if(listUsersBtn) listUsersBtn.addEventListener('click', ()=>{ callListUsers(); });
+
+  checkServer();
+  connectWS();
+}
+
+window.addEventListener('load', init);
+
+// WebSocket with simple reconnect
+let ws = null;
+let wsReconnectTimer = null;
+function connectWS(){
+  if(ws) ws.close();
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = proto + '//' + location.host + '/ws';
+  ws = new WebSocket(url);
+  ws.addEventListener('open', ()=>{ setStatus(true); /* don't show raw open messages */ });
+  ws.addEventListener('close', ()=>{ setStatus(false); scheduleReconnect(); });
+  ws.addEventListener('error', (e)=>{ showOutput('WebSocket error'); ws.close(); });
+  ws.addEventListener('message', (ev)=>{
+    try{
+      const data = JSON.parse(ev.data);
+      showOutput(data);
+    }catch(e){ showOutput(ev.data, true); }
+  });
+}
+
+function scheduleReconnect(){
+  if(wsReconnectTimer) return;
+  wsReconnectTimer = setTimeout(()=>{ wsReconnectTimer = null; connectWS(); }, 3000);
+}
+  </script>
+</body>
+</html>

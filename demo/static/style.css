@@ -1,0 +1,35 @@
+:root{ --bg:#0f1720; --card:#0b1220; --accent:#1d4ed8; --muted:#9aa4b2 }
+body{ font-family: Inter, Arial, sans-serif; background:#f3f6f9; color:#0b1020; margin:0; padding:24px }
+.container{ max-width:1200px; margin:8px auto }
+header{ display:flex; align-items:flex-end; gap:16px }
+header h1{ margin:0; font-size:20px }
+.sub{ color:var(--muted); font-size:13px }
+.controls{ display:grid; grid-template-columns:90px 1fr 220px; gap:20px; align-items:center; margin-top:12px }
+.controls label{ color:var(--muted) }
+.controls input{ width:100%; min-width:0; padding:8px 10px; border:1px solid #dfe7ef; border-radius:6px; box-sizing:border-box }
+.controls .btns{ display:flex; gap:12px; align-items:center; justify-content:flex-end; justify-self:end; padding-left:0 }
+.btns button{ min-width:88px }
+.controls .btns button{ width:110px; min-width:110px; max-width:110px; box-sizing:border-box; white-space:nowrap }
+.controls .btns button.primary{ width:110px }
+button{ padding:8px 12px; border-radius:6px; border:none; cursor:pointer; height:36px }
+.btns button{ display:inline-flex; align-items:center; justify-content:center }
+.primary{ background:var(--accent); color:#fff; min-width:72px }
+.status{ margin-top:12px; font-weight:600 }
+.status.disconnected{ color:#6b7280 }
+.status.connected{ color:#10b981 }
+.panel-row{ display:flex; gap:8px; align-items:flex-start; margin-top:12px }
+.panel-row .label{ width:90px; color:var(--muted); padding-top:6px }
+.panel-row .output{ flex:1 }
+.output{ background:#0f1724; border-radius:8px; padding:16px; color:#cbd5e1; overflow:auto; white-space:pre-wrap }
+/* API result should take ~50% of the viewport height */
+.output.small{ height:50vh; min-height:220px }
+/* Live area takes the rest (approx). Use viewport-relative sizing so layout scales */
+.output{ height:38vh; min-height:200px }
+
+/* Pretty print styles */
+.output pre{ margin:0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Courier New', monospace; font-size:13px; line-height:1.4 }
+.output .key{ color:#93c5fd }
+.output .string{ color:#fca5a5 }
+.output .number{ color:#fef08a }
+.output .boolean{ color:#86efac }
+.output .null{ color:#a3a3a3 }
