@@ -5,14 +5,26 @@ import httpx
 import time
 import asyncio
 from fastmcp.tools.tool import ToolResult
+from contextlib import asynccontextmanager
+from fastmcp.utilities.lifespan import combine_lifespans
 
 # import MCP server tools
 from demo import mcp_server
 
-app = FastAPI(title="Demo API Server")
+# Create the MCP HTTP sub-app and combine lifespans so it's started with FastAPI
+mcp_app = mcp_server.mcp.http_app()
+
+@asynccontextmanager
+async def app_lifespan(app):
+    yield
+
+app = FastAPI(title="Demo API Server", lifespan=combine_lifespans(app_lifespan, mcp_app.lifespan))
 
 # Serve static UI
 app.mount("/static", StaticFiles(directory="demo/static"), name="static")
+
+# Mount MCP HTTP app so MCP endpoints are available under `/mcp`
+app.mount("/mcp", mcp_app)
 
 
 @app.get("/")
